@@ -7,6 +7,11 @@ if [ "$1" = "" ] || [ "$1" = "-h" ]; then
   echo "Please run as root and pass the user name."
   exit 1
 fi
+if [ "$(uname)" == 'Linux' ]; then
+  echo "This Script is for FreeBSD."
+  exit 1
+fi
+
 if [ ! -x /usr/local/bin/bash ]; then
   echo "Please install bash."
   echo "Would you like to install 'bash'? [Y/N]"
@@ -17,8 +22,7 @@ if [ ! -x /usr/local/bin/bash ]; then
     [Nn]* ) exit 1;;
   esac
   
-  pkg install -y bash
-  
+  pkg install -y bash  
 fi
 
 BASH_USER=$1

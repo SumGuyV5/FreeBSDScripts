@@ -161,18 +161,12 @@ vmware() {
       make -DBATCH install clean
     fi
     xorg_vm
-  
-    sed -i.bak '/vmware_guest_vmblock_enable/d' /etc/rc.conf
-    sed -i.bak '/vmware_guest_vmhgfs_enable/d' /etc/rc.conf
-    sed -i.bak '/vmware_guest_vmmemctl_enable/d' /etc/rc.conf
-    sed -i.bak '/vmware_guest_vmxnet_enable/d' /etc/rc.conf
-    sed -i.bak '/vmware_guestd_enable/d' /etc/rc.conf
     
-    echo 'vmware_guest_vmblock_enable="YES"
-vmware_guest_vmhgfs_enable="YES"
-vmware_guest_vmmemctl_enable="YES"
-vmware_guest_vmxnet_enable="YES"
-vmware_guestd_enable="YES"' >> /etc/rc.conf
+    sysrc -f /etc/rc.conf vmware_guest_vmblock_enable="YES"
+    sysrc -f /etc/rc.conf vmware_guest_vmhgfs_enable="YES"
+    sysrc -f /etc/rc.conf vmware_guest_vmmemctl_enable="YES"
+    sysrc -f /etc/rc.conf vmware_guest_vmxnet_enable="YES"
+    sysrc -f /etc/rc.conf vmware_guestd_enable="YES"
   fi
 }
 
@@ -189,9 +183,9 @@ xorg_config() {
     echo "proc            /proc           procfs  rw      0       0" >> /etc/fstab
   fi
   
-  echo 'moused_enable="YES"
-dbus_enable="YES"
-hald_enable="YES"' >> /etc/rc.conf
+  sysrc -f /etc/rc.conf moused_enable="YES"
+  sysrc -f /etc/rc.conf dbus_enable="YES"
+  sysrc -f /etc/rc.conf hald_enable="YES"
 }
 
 xorg_vm() {
@@ -307,8 +301,7 @@ display_man() {
       cd /usr/ports/x11/gdm/
       make -DBATCH install clean
     fi
-    echo 'gdm_enable="YES"
-    gnome_enable="YES"' >> /etc/rc.conf
+    sysrc -f /etc/rc.conf gnome_enable="YES"
   else
     if [ $SDDM = true ]; then
       if [ $PKG = true ]; then
@@ -317,7 +310,7 @@ display_man() {
         cd /usr/ports/x11/sddm/
         make -DBATCH install clean
       fi
-      echo 'sddm_enable="YES"' >> /etc/rc.conf
+      sysrc -f /etc/rc.conf sddm_enable="YES"
     else
       if [ $LIGHTDM = true ]; then
         if [ $PKG = true ]; then
@@ -329,7 +322,7 @@ display_man() {
           cd /usr/ports/x11/lightdm-gtk-greeter/
           make -DBATCH install clean          
         fi
-        echo 'lightdm_enable="YES"' >> /etc/rc.conf
+        sysrc -f /etc/rc.conf lightdm_enable="YES"
       fi
     fi   
   fi  

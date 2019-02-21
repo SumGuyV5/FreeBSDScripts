@@ -4,9 +4,9 @@ if [ `whoami` != root ]; then
   exit 1
 fi
 
-MY_SERVER_NAME=""
+VERSION="7"
 
-PGSQL_PASS=""
+DRUPAL_VER="drupal7"
 
 DRUPAL_DB_USER=""
 DRUPAL_DB_USER_PASS=""
@@ -14,10 +14,11 @@ DRUPAL_DB=""
 
 HELP=false
 
-while getopts u:p:d:s:P:h option
+while getopts v:u:p:d:s:P:h option
 do
   case "${option}"
   in    
+  v) VERSION=$OPTARG;;
   u) DRUPAL_DB_USER=$OPTARG;;
   p) DRUPAL_DB_USER_PASS=$OPTARG;;
   d) DRUPAL_DB=$OPTARG;;
@@ -59,6 +60,7 @@ help() {
   header "Help"
   echo "If you pass this script no options or you forget to pass all the option, this script will ask you some questions."
   echo ""
+  echo "-v tell the script what version of drupal to use. 7 for Version 7, 8 for Version 8. Default 7"
   echo "-u tell the script what to name your drupal database user."
   echo "-p tell the script what password would you like to give your drupal database user"
   echo "-d tell the script what to name your drupal database."
@@ -73,14 +75,19 @@ pkg_install() {
   pkg update
 
   pkg install -y apache24
+  pkg install -y mysql56-server 
+  pkg install -y mysql56-client
   pkg install -y php72
   pkg install -y php72-zlib
   #pkg install -y php56-pecl-uploadprogress
   pkg install -y php72-extensions
   pkg install -y php72-curl
-  pkg install -y mod_php72
-  pkg install -y mysql56-server mysql56-client
-  pkg install -y drupal7
+  pkg install -y php72-mysqli
+  pkg install -y php72-hash
+  pkg install -y php72-gd
+  pkg install -y php72-pdo_mysql
+  pkg install -y mod_php72  
+  pkg install -y $DRUPAL_VER
   pkg install -y drush-php72  
 }
 
@@ -135,8 +142,8 @@ mysql_secure() {
 
 mysql_setup() {
   
+  sysrc -f /etc/rc.conf mysql_enable="YES"
   
-  sysrc mysql_enable=yes
   service mysql-server start
   
   mysql_secure
@@ -148,26 +155,11 @@ grant all privileges on ${DRUPAL_DB}.* to ${DRUPAL_DB_USER}@localhost identified
 flush privileges;
 \q
 EOF
-    
-  sed -i.bak '/mysql_enable/d' /etc/rc.conf
-  
-  echo 'mysql_enable="YES"' >> /etc/rc.conf
-  
+      
   service mysql-server restart  
 }
 
-drupal_conf() {
-  cd /usr/local/www/drupal7/sites/default/
-  cp default.settings.php settings.php 
-  chown www:www settings.php
-  
-  mkdir /usr/local/www/drupal7/sites/default/files/private
-  
-  cd /usr/local/www/ 
-  chown -R www:www drupal7/
-  
-  sed -i.bak '/$databases = array();/d' /usr/local/www/drupal7/sites/default/settings.php
-  
+drupal7_set(){
   echo "\$databases['default']['default'] = array(
   'driver' => 'mysql',
   'database' => 'drupal_db',
@@ -176,18 +168,50 @@ drupal_conf() {
   'host' => 'localhost',
   'charset' => 'utf8mb4',
   'collation' => 'utf8mb4_general_ci',
-);" >> /usr/local/www/drupal7/sites/default/settings.php
+);" >> /usr/local/www/$DRUPAL_VER/sites/default/settings.php
+}
 
-  sed -i.bak "s/drupal_db/${DRUPAL_DB}/g" /usr/local/www/drupal7/sites/default/settings.php
-  sed -i.bak "s/drupal_user/${DRUPAL_DB_USER}/g" /usr/local/www/drupal7/sites/default/settings.php
-  sed -i.bak "s/drupal_passwd/${DRUPAL_DB_USER_PASS}/g" /usr/local/www/drupal7/sites/default/settings.php
+drupal8_set(){
+  echo "\$databases['default']['default'] = array (
+  'database' => 'drupal_db',
+  'username' => 'drupal_user',
+  'password' => 'drupal_passwd',
+  'prefix' => '',
+  'host' => 'localhost',
+  'port' => '3306',
+  'driver' => 'mysql',
+  'collation' => 'utf8mb4_general_ci',
+);" >> /usr/local/www/$DRUPAL_VER/sites/default/settings.php
+}
+
+drupal_conf() {
+  cd /usr/local/www/$DRUPAL_VER/sites/default/
+  cp default.settings.php settings.php 
+  chown www:www settings.php
+  
+  mkdir /usr/local/www/$DRUPAL_VER/sites/default/files/private
+  
+  cd /usr/local/www/ 
+  chown -R www:www $DRUPAL_VER/
+  
+  sed -i.bak '/$databases = array();/d' /usr/local/www/$DRUPAL_VER/sites/default/settings.php
+
+  if [ "$VERSION" = "8" ]; then
+    drupal8_set
+  else
+    drupal7_set
+  fi   
+
+  sed -i.bak "s/drupal_db/${DRUPAL_DB}/g" /usr/local/www/$DRUPAL_VER/sites/default/settings.php
+  sed -i.bak "s/drupal_user/${DRUPAL_DB_USER}/g" /usr/local/www/$DRUPAL_VER/sites/default/settings.php
+  sed -i.bak "s/drupal_passwd/${DRUPAL_DB_USER_PASS}/g" /usr/local/www/$DRUPAL_VER/sites/default/settings.php
 
   cat > /usr/local/etc/apache24/Includes/drupal.conf <<EOF
 <VirtualHost *:80>
   ServerName server_name
   
-  DocumentRoot /usr/local/www/drupal7
-  <Directory "/usr/local/www/drupal7">
+  DocumentRoot /usr/local/www/$DRUPAL_VER
+  <Directory "/usr/local/www/$DRUPAL_VER">
     Options Indexes FollowSymLinks
     AllowOverride All
     Require all granted
@@ -200,22 +224,16 @@ EOF
 
 apache_conf() {
   sed -i.bak '/^#LoadModule rewrite_module libexec\/apache24\/mod_rewrite.so/s/^#//g' /usr/local/etc/apache24/httpd.conf
+  
+  sed -i.bak '/^#LoadModule mime_magic_module libexec\/apache24\/mod_mime_magic.so/s/^#//g' /usr/local/etc/apache24/httpd.conf
     
   sed -i.bak '/AddType application\/x-httpd-php .php/d' /usr/local/etc/apache24/httpd.conf
   sed -i.bak '/\<IfModule mime_module\>/a\
     AddType application/x-httpd-php .php' /usr/local/etc/apache24/httpd.conf
 
-  cat >> /usr/local/etc/apache24/httpd.conf <<EOF
-<IfModule mime_module>
-  AddType application/x-httpd-php .php
-</IfModule>
-EOF
+  sysrc -f /etc/rc.conf apache24_enable="YES"
 
   service apache24 start
-
-  sed -i.bak '/apache24_enable/d' /etc/rc.conf
-  
-  echo 'apache24_enable="YES"' >> /etc/rc.conf
 }
 
 restart_apps() {
@@ -229,6 +247,21 @@ please() {
   echo "Please go to $MY_SERVER_NAME/install.php not $MY_SERVER_NAME"
   echo "  =================================================================="
   echo ""
+}
+
+question_yn() {
+  HEADER=$1
+  QUESTION=$2
+  
+  header "$HEADER"
+  echo "    $QUESTION? [Y/N]"
+  
+  read yesno
+  
+  case $yesno in
+    [Yy]* ) VERSION="8";;
+    [Nn]* ) VERSION="7";;
+  esac
 }
 
 question() {
@@ -253,6 +286,8 @@ question() {
 }
 
 ask_questions() {
+  question_yn "Drupal 8 or Drupal 7." "Would you like to install Drupal 8 instead of the default Drupal 7"
+
   question "Drupal Database user." "What would you like to name your drupal database user" 0
   
   question "Drupal Database user password." "What password would you like to give your database user" 1
@@ -275,6 +310,12 @@ fi
 #If no options have been passed or if not all the options were passed, we ask the user.
 if [ $OPT = false ] || [ -z $MY_SERVER_NAME ] || [ -z $SQL_PASS ] || [ -z $DRUPAL_DB_USER ] || [ -z $DRUPAL_DB_USER_PASS ] || [ -z $DRUPAL_DB ]; then
   ask_questions
+fi
+
+if [ "$VERSION" = "8" ]; then
+  DRUPAL_VER="drupal8"
+else
+  DRUPAL_VER="drupal7"
 fi
 
 pkg_install

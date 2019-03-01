@@ -68,9 +68,9 @@ help() {
 }
 
 write_gunicorn_start() {
-  cd $1
+  cd "${USER_HOME}/${MY_ENV}"
   cat > bin/gunicorn_start <<EOF
-#!/bin/bash
+#!/bin/sh
 
 NAME="myproject"                                      # Django Project Name
 DJANGODIR=myhome/myenv/myproject                      # Django Project Directory
@@ -126,6 +126,7 @@ EOF
 }
 
 write_mydjango() {
+#Cat Start
   cat > mydjango.conf <<EOF
 upstream myproject_server {
   server unix:/myhome/myenv/myproject/run/gunicorn.sock fail_timeout=0;
@@ -168,6 +169,7 @@ server {
   }
 }  
 EOF
+#Cat End
   sed -i.bak "s#myhome#${USER_HOME}#g" mydjango.conf
   sed -i.bak "s/www.djangofreebsd.com/${MY_SERVER_NAME}/g" mydjango.conf
   sed -i.bak "s/myuser/${MY_USER}/g" mydjango.conf
@@ -178,7 +180,8 @@ EOF
 write_nginx() {
   sed -i.bak "/include vhost\/\*.conf;/d" nginx.conf
   sed -i.bak '121i\
-  include vhost/*.conf;' nginx.conf  
+  include vhost/*.conf;
+  ' nginx.conf  
 }
 
 step1() {
@@ -202,18 +205,14 @@ step2() {
   DIR="${USER_HOME}/${MY_ENV}"
   rm -R $DIR
   
-  COMMAND="virtualenv --python=python3.6 ${MY_ENV}; " 
-    
-  COMMAND+="cd ${MY_ENV}; "  
-  COMMAND+="source bin/activate; "
-  COMMAND+="pip install django; "
-  COMMAND+="pip install gunicorn; "
+  COMMAND="virtualenv --python=python3.6 ${MY_ENV}; 
+  cd ${MY_ENV}; 
+  source bin/activate; 
+  pip install django; 
+  pip install gunicorn; 
+  django-admin startproject ${MY_PROJECT}; "
   
-  COMMAND+="django-admin startproject ${MY_PROJECT}; "
-  
-  COMMAND+="cd ${MY_PROJECT}; "
-  
-  su $MY_USER -c "${COMMAND}"
+  su -l $MY_USER -c "${COMMAND}"
   
   DIR="${USER_HOME}/${MY_ENV}/${MY_PROJECT}/${MY_PROJECT}"
   
@@ -231,21 +230,19 @@ step2() {
   
   sed -i.bak "s/ALLOWED_HOSTS = \[/ALLOWED_HOSTS = \['${MY_SERVER_NAME}',/g" $DIR/settings.py
   
-  COMMAND="cd ${MY_ENV}; "
-  COMMAND+="cd ${MY_PROJECT}; "
-  COMMAND+="source bin/activate; "
-  COMMAND+="python manage.py collectstatic; "
+  COMMAND="cd ${MY_ENV}/${MY_PROJECT}; 
+  source bin/activate; 
+  python manage.py collectstatic; "
   
-  su $MY_USER -c $COMMAND
+  su -l $MY_USER -c $COMMAND
   
-  write_gunicorn_start "${USER_HOME}/${MY_ENV}"
+  write_gunicorn_start
   
-  COMMAND="cd ${MY_ENV}; "
-  COMMAND+="cd ${MY_PROJECT}; "
-  COMMAND+="source bin/activate; "
-  COMMAND+="chmod u+x bin/gunicorn_start; "
+  COMMAND="cd ${MY_ENV}/${MY_PROJECT}; 
+  source bin/activate; 
+  chmod u+x bin/gunicorn_start; "
   
-  su $MY_USER -c $COMMAND
+  su -l $MY_USER -c $COMMAND
 }
 
 step3() {

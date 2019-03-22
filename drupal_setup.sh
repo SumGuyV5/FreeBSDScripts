@@ -208,7 +208,7 @@ drupal_conf() {
 
   cat > /usr/local/etc/apache24/Includes/drupal.conf <<EOF
 <VirtualHost *:80>
-  ServerName server_name
+  ServerName $MY_SERVER_NAME
   
   DocumentRoot /usr/local/www/$DRUPAL_VER
   <Directory "/usr/local/www/$DRUPAL_VER">
@@ -218,8 +218,6 @@ drupal_conf() {
   </Directory>
 </VirtualHost>
 EOF
-
-  sed -i.bak "s/server_name/${MY_SERVER_NAME}/g" /usr/local/etc/apache24/Includes/drupal.conf
 }
 
 apache_conf() {
@@ -229,7 +227,8 @@ apache_conf() {
     
   sed -i.bak '/AddType application\/x-httpd-php .php/d' /usr/local/etc/apache24/httpd.conf
   sed -i.bak '/\<IfModule mime_module\>/a\
-    AddType application/x-httpd-php .php' /usr/local/etc/apache24/httpd.conf
+    AddType application/x-httpd-php .php
+    ' /usr/local/etc/apache24/httpd.conf
 
   sysrc -f /etc/rc.conf apache24_enable="YES"
 

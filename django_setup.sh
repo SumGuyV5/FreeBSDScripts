@@ -36,15 +36,15 @@ header() {
   echo $max
   for i in $(seq 1 $max)
   do
-    DISPLAY+="-"    
+    DISPLAY="${DISPLAY}-"    
   done
-  DISPLAY+=" "$HEADER" "
+  DISPLAY="${DISPLAY} "$HEADER" "
   
   STRLENGTH=$(echo -n $DISPLAY | wc -m)
   max=`expr 65 - $STRLENGTH`
   for i in $(seq 1 $max)
   do
-    DISPLAY+="-"
+    DISPLAY="${DISPLAY}-"
   done
     
   clear

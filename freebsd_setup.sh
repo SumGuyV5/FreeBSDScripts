@@ -52,7 +52,7 @@ do
   OPT=true
 done
 
-header() {  
+header() {
   HEADER=$1
   STRLENGTH=$(echo -n $HEADER | wc -m)
   DISPLAY="  " #65
@@ -63,7 +63,7 @@ header() {
   do
     DISPLAY="${DISPLAY}-"    
   done
-  DISPLAY="${DISPLAY} ${HEADER} "
+  DISPLAY="${DISPLAY} "$HEADER" "
   
   STRLENGTH=$(echo -n $DISPLAY | wc -m)
   max=`expr 65 - $STRLENGTH`

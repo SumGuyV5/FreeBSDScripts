@@ -274,8 +274,12 @@ xfce() {
     echo ""
     if [ $PKG = true ]; then
       pkg install -y xfce
+      pkg install -y xfce4-pulseaudio-plugin
+      pkg install -y xfce4-pulseaudio-pulse
     else
       cd /usr/ports/x11-wm/xfce4/
+      make -DBATCH install clean
+      cd /usr/ports/audio/xfce4-pulseaudio-plugin
       make -DBATCH install clean
     fi      
   fi
@@ -404,6 +408,7 @@ questionDis() {
     [Ss]* ) SDDM=true;;
     [Gg]* ) GDM=true;;
     [Ll]* ) LIGHTDM=true;;
+    [Xx]* ) LIGHTDM=true;;
     [Nn]* ) NONE=true;;
     * ) NONE=true
   esac

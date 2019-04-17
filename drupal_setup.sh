@@ -6,7 +6,7 @@ fi
 
 VERSION="7"
 
-DRUPAL_VER="drupal7"
+DRUPAL_VER="drupal${VERSION}"
 
 DRUPAL_DB_USER=""
 DRUPAL_DB_USER_PASS=""
@@ -142,7 +142,7 @@ mysql_secure() {
 
 mysql_setup() {
   
-  sysrc -f /etc/rc.conf mysql_enable="YES"
+  sysrc mysql_enable="YES"
   
   service mysql-server start
   
@@ -184,6 +184,28 @@ drupal8_set(){
 );" >> /usr/local/www/$DRUPAL_VER/sites/default/settings.php
 }
 
+SSL_setup() {
+  sed -i.bak '/^#LoadModule ssl_module libexec\/apache24\/mod_ssl.so/s/^#//g' /usr/local/etc/apache24/httpd.conf
+  
+  mkdir -p /usr/local/etc/apache24/ssl
+  cd /usr/local/etc/apache24/ssl
+  openssl genrsa -rand -genkey -out cert.key 2048
+  
+  openssl req -new -x509 -days 365 -key private.key -out certificate.crt -sha256 -subj "/C=CA/ST=ONTARIO/L=TORONTO/O=Global Security/OU=IT Department/CN=example.com"
+  
+  cat > /usr/local/etc/apache24/modules.d/020_mod_ssl.conf <<EOF
+Listen 443
+
+SSLProtocol ALL -SSLv2 -SSLv3
+
+SSLCipherSuite HIGH:MEDIUM:!aNULL:!MD5
+
+SSLPassPhraseDialog builtin
+
+SSLSessionCacheTimeout 300
+EOF
+}
+
 drupal_conf() {
   cd /usr/local/www/$DRUPAL_VER/sites/default/
   cp default.settings.php settings.php 
@@ -217,6 +239,20 @@ drupal_conf() {
     Require all granted
   </Directory>
 </VirtualHost>
+<VirtualHost *:443>
+  ServerName $MY_SERVER_NAME
+  SSLEngine on
+  SSLCertificateFile "/usr/local/etc/apache24/ssl/certificate.crt"
+
+  SSLCertificateKeyFile "/usr/local/etc/apache24/ssl/private.key"
+
+  DocumentRoot /usr/local/www/$DRUPAL_VER
+  <Directory "/usr/local/www/$DRUPAL_VER">
+    Options Indexes FollowSymLinks
+    AllowOverride All
+    Require all granted
+  </Directory>
+</VirtualHost>
 EOF
 }
 
@@ -230,7 +266,7 @@ apache_conf() {
     AddType application/x-httpd-php .php
     ' /usr/local/etc/apache24/httpd.conf
 
-  sysrc -f /etc/rc.conf apache24_enable="YES"
+  sysrc apache24_enable="YES"
 
   service apache24 start
 }

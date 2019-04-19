@@ -162,11 +162,11 @@ vmware() {
     fi
     xorg_vm
     
-    sysrc -f /etc/rc.conf vmware_guest_vmblock_enable="YES"
-    sysrc -f /etc/rc.conf vmware_guest_vmhgfs_enable="YES"
-    sysrc -f /etc/rc.conf vmware_guest_vmmemctl_enable="YES"
-    sysrc -f /etc/rc.conf vmware_guest_vmxnet_enable="YES"
-    sysrc -f /etc/rc.conf vmware_guestd_enable="YES"
+    sysrc vmware_guest_vmblock_enable="YES"
+    sysrc vmware_guest_vmhgfs_enable="YES"
+    sysrc vmware_guest_vmmemctl_enable="YES"
+    sysrc vmware_guest_vmxnet_enable="YES"
+    sysrc vmware_guestd_enable="YES"
   fi
 }
 
@@ -183,9 +183,9 @@ xorg_config() {
     echo "proc            /proc           procfs  rw      0       0" >> /etc/fstab
   fi
   
-  sysrc -f /etc/rc.conf moused_enable="YES"
-  sysrc -f /etc/rc.conf dbus_enable="YES"
-  sysrc -f /etc/rc.conf hald_enable="YES"
+  sysrc moused_enable="YES"
+  sysrc dbus_enable="YES"
+  sysrc hald_enable="YES"
 }
 
 xorg_vm() {
@@ -305,7 +305,7 @@ display_man() {
       cd /usr/ports/x11/gdm/
       make -DBATCH install clean
     fi
-    sysrc -f /etc/rc.conf gnome_enable="YES"
+    sysrc gnome_enable="YES"
   else
     if [ $SDDM = true ]; then
       if [ $PKG = true ]; then
@@ -314,7 +314,7 @@ display_man() {
         cd /usr/ports/x11/sddm/
         make -DBATCH install clean
       fi
-      sysrc -f /etc/rc.conf sddm_enable="YES"
+      sysrc sddm_enable="YES"
     else
       if [ $LIGHTDM = true ]; then
         if [ $PKG = true ]; then
@@ -326,7 +326,7 @@ display_man() {
           cd /usr/ports/x11/lightdm-gtk-greeter/
           make -DBATCH install clean          
         fi
-        sysrc -f /etc/rc.conf lightdm_enable="YES"
+        sysrc lightdm_enable="YES"
       fi
     fi   
   fi  

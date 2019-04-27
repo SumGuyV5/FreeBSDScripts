@@ -26,13 +26,16 @@ NONE=false
 SUDO=false
 USERS_SUDO=""
 
+BASH=false
+USERS_BASH=""
+
 FIREFOX=false
 
 REBOOT=false
 
 OPT=false
 
-while getopts UpvkgxsufRh option
+while getopts UpvkgxsubfRh option
 do
   case "${option}"
   in
@@ -46,6 +49,7 @@ do
   s) SUDO=true;;
   u) SUDO=true
     USERS_SUDO=$OPTARG;;
+  b) BASH=true;;
   f) FIREFOX=true;;
   R) REBOOT=true;;
   esac
@@ -95,6 +99,7 @@ help() {
   echo "-f install FireFox."
   echo "-s install sudo."
   echo "-u add users to sudo group. This will install sudo if not already installed. ie -u richard will add user richard to group sudo."
+  echo "-b make default users shell bash. This will install bash if not already installed. ie -b richard will set richard's default shell to bash."
   echo "-R Reboots computer after excuting the script."
   echo "-h this help text." 
 }
@@ -139,7 +144,13 @@ pkgorports() {
   fi
 }
 
-bhyve() {
+kernal_src() {
+  if [ "$(ls -A /usr/src)" ]; then
+    echo "src all ready download."
+  else
+    fetch ftp://ftp.freebsd.org/pub/`uname -s`/releases/`uname -m`/`uname -r`/src.txz
+  fi
+  tar -C / -zxvf src.txz
 }
 
 vmware() {
@@ -149,19 +160,24 @@ vmware() {
     if [ $PKG = true ]; then
       echo "pkg install"
       pkg install -y open-vm-tools
-      pkg install -y xf86-video-vmware xf86-input-vmmouse
+      if [ $KDE = true ] || [ $GNOME = true ] || [ $XFCE = true ]; then
+        pkg install -y xf86-video-vmware xf86-input-vmmouse
+      fi
     else
+      kernal_src
+      
       cd /usr/ports/emulators/open-vm-tools/
       make -DBATCH install clean
       
-      cd /usr/ports/x11-drivers/xf86-video-vmware/
-      make -DBATCH install clean
+      if [ $KDE = true ] || [ $GNOME = true ] || [ $XFCE = true ]; then
+        cd /usr/ports/x11-drivers/xf86-video-vmware/
+        make -DBATCH install clean
       
-      cd /usr/ports/x11-drivers/xf86-input-vmmouse/
-      make -DBATCH install clean
+        cd /usr/ports/x11-drivers/xf86-input-vmmouse/
+        make -DBATCH install clean        
+      fi
     fi
-    xorg_vm
-    
+        
     sysrc vmware_guest_vmblock_enable="YES"
     sysrc vmware_guest_vmhgfs_enable="YES"
     sysrc vmware_guest_vmmemctl_enable="YES"
@@ -175,7 +191,7 @@ xorg_config() {
 
   cp /root/xorg.conf.new /usr/local/etc/X11/xorg.conf.d/xorg.conf
   
-  if [ "$XFCE" = true ]; then
+  if [ $XFCE = true ]; then
     #echo "exec /usr/local/bin/startxfce4 --with-ck-launch" > ~/.xinitrc
   else
     sed -i.bak '/proc/d' /etc/fstab
@@ -210,8 +226,7 @@ xorg_vm() {
     if [ -f /usr/local/etc/X11/xorg.conf.d/xorg.conf ]; then
       sed -i.bak 's/Driver      "vesa"/Driver      "scfb"/gi' /usr/local/etc/X11/xorg.conf.d/xorg.conf
       
-      sed -i.bak 's/Driver      "mouse"/Driver      "scfb"/gi' /usr/local/etc/X11/xorg.conf.d/xorg.conf
-      
+      sed -i.bak 's/Driver      "mouse"/Driver      "scfb"/gi' /usr/local/etc/X11/xorg.conf.d/xorg.conf      
     fi
   fi
 }
@@ -367,6 +382,26 @@ add_sudo_user() {
   fi
 }
 
+bash_install() {
+  if [ $BASH = true ]; then
+    if [ $PKG = true ]; then
+      pkg install -y bash
+    else
+      cd /usr/ports/shell/bash/
+      make -DBATCH install clean
+    fi
+  fi
+}
+
+add_bash_user() {
+  if [ -f /usr/local/bin/bash ]; then
+    if id "$BASH_USER" >/dev/null 2>&1; then
+      echo "user does exist."
+      chsh -s /usr/local/bin/bash $BASH_USER 
+    fi
+  fi  
+}
+
 reboot_com() {
   if [ $REBOOT = true ]; then
     echo "Rebooting..."
@@ -414,7 +449,7 @@ questionDis() {
   esac
 }
 
-question_adduser() {
+question_adduser_sudo() {
   echo "Add user to group 'sudo'? [Y/N]"
   read yesno
     
@@ -437,6 +472,44 @@ question_adduser() {
       echo "user does exist."
       [ $(getent group sudo) ] || pw groupadd sudo
       pw groupmod sudo -m $USER_ADD
+    else
+      echo "user does not exist."
+      echo "    would you like to exit? [Y/N]"
+        
+      read yesno
+        
+      case $yesno in
+        [Yy]* ) END=true;;
+        [Nn]* ) ;;
+      esac
+    fi    
+  done
+}
+
+question_adduser_bash() {
+  echo "make bash defaut shell? [Y/N]"
+  read yesno
+    
+  case $yesno in
+    [Yy]* );;
+    [Nn]* ) return;;
+  esac
+  
+  if [ -f /usr/local/bin/bash ]; then
+    echo "Bash not found!"
+    echo "exit"
+    return
+  fi
+    
+  END=false
+  while [ $END = false ]
+  do
+    echo "Enter user to add to group 'sudo' or leave blank to exit."
+    read USER_ADD
+      
+    if id "$USER_ADD" >/dev/null 2>&1; then
+      echo "user does exist."
+      chsh -s /usr/local/bin/bash $USER_ADD 
     else
       echo "user does not exist."
       echo "    would you like to exit? [Y/N]"
@@ -494,7 +567,14 @@ ask_questions() {
     SUDO=true
   fi
   
-  question_adduser  
+  question_adduser_sudo
+  
+  question "Install bash." "Would you like to install bash"
+  if [ "$?" = 1 ]; then
+    BASH=true
+  fi
+  
+  question_adduser_bash
   
   question "Reboot Computer." "Would you like to Reboot the Computer"
   if [ "$?" = 1 ]; then
@@ -524,6 +604,10 @@ execute_selection() {
   sudo_install
   
   add_sudo_user
+  
+  bash_install
+  
+  add_bash_user
   
   reboot_com
 }

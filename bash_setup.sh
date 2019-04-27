@@ -22,7 +22,14 @@ if [ ! -x /usr/local/bin/bash ]; then
     [Nn]* ) exit 1;;
   esac
   
-  pkg install -y bash  
+  echo "Would you like to use PKG? [Y/N]"
+  
+  read yesno
+  case $yesno in
+    [Yy]* ) pkg install -y bash ;;
+    [Nn]* ) cd /usr/ports/shells/bash && make install clean;;
+  esac
+   
 fi
 
 BASH_USER=$1

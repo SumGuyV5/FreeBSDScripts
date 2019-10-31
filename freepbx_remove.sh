@@ -20,10 +20,11 @@ FREEPBX_VER="freepbx-14.0-latest.tgz"
 
 remove_pkg() {
   pkg remove -y asterisk13
-  pkg remove -y apache24 mysql56-server mysql56-client mongodb36 bison flex node
+  pkg remove -y apache24 mysql57-server mysql57-client mongodb36 bison flex node
   pkg remove -y mod_$PHP_VER $PHP_VER $PHP_VER-curl $PHP_VER-mysqli $PHP_VER-pear $PHP_VER-gd $PHP_VER-pdo_mysql $PHP_VER-gettext $PHP_VER-openssl $PHP_VAR-mbstring
+  pkg remove -y $PHP_VER-sysvsem
   pkg remove -y $PHP_VER-extensions 
-  pkg remove -y curl sox ncurses openssl mpg123 libxml2 newt sqlite3 unixODBC mysql-connector-odbc-unixodbc-mysql56 gnupg
+  pkg remove -y curl sox ncurses openssl mpg123 libxml2 newt sqlite3 unixODBC mysql-connector-odbc-unixodbc-mysql57 gnupg
   
   pkg remove -y npm
 }
@@ -94,7 +95,3 @@ stop_service
 remove_pkg
 
 remove_files
-
-
-
-#sudo pkg install pam_fprint pam_google_authenticator pam_helper pam_jail pam_kde pam_krb5 pam_krb5-rh pam_ldap pam_mkhomedir pam_mount pam_mysql pam_ocra pam_p11 pam_per_user pam_pseudo pam_pwdfile pam_require pam_search_list pam_ssh_agent_auth pam_wrapper pam_yubico

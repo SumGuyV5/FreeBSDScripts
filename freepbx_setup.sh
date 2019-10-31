@@ -49,11 +49,13 @@ install_pkg() {
   #pw user add asterisk
   #chsh -s /usr/local/bin/bash asterisk
 
+  pkg install -y bash
   pkg install -y asterisk13
-  pkg install -y apache24 mysql56-server mysql56-client mongodb36 bison flex node
+  pkg install -y apache24 mysql57-server mysql57-client mongodb36 bison flex node
   pkg install -y mod_$PHP_VER $PHP_VER $PHP_VER-curl $PHP_VER-mysqli $PHP_VER-pear $PHP_VER-gd $PHP_VER-pdo_mysql $PHP_VER-gettext $PHP_VER-openssl $PHP_VER-mbstring
+  pkg install -y $PHP_VER-sysvsem
   pkg install -y $PHP_VER-extensions 
-  pkg install -y curl sox ncurses openssl mpg123 libxml2 newt sqlite3 unixODBC mysql-connector-odbc-unixodbc-mysql56 gnupg
+  pkg install -y curl sox ncurses openssl mpg123 libxml2 newt sqlite3 unixODBC mysql-connector-odbc-unixodbc-mysql57 gnupg
   
   pkg install -y npm
   pkg install -y linux_base-c7
@@ -63,10 +65,11 @@ install_pkg() {
 
 remove_pkg() {
   pkg remove -y asterisk13
-  pkg remove -y apache24 mysql56-server mysql56-client mongodb36 bison flex node
+  pkg remove -y apache24 mysql57-server mysql57-client mongodb36 bison flex node
   pkg remove -y mod_$PHP_VER $PHP_VER $PHP_VER-curl $PHP_VER-mysqli $PHP_VER-pear $PHP_VER-gd $PHP_VER-pdo_mysql $PHP_VER-gettext $PHP_VER-openssl $PHP_VAR-mbstring
+  pkg remove -y $PHP_VER-sysvsem
   pkg remove -y $PHP_VER-extensions 
-  pkg remove -y curl sox ncurses openssl mpg123 libxml2 newt sqlite3 unixODBC mysql-connector-odbc-unixodbc-mysql56 gnupg
+  pkg remove -y curl sox ncurses openssl mpg123 libxml2 newt sqlite3 unixODBC mysql-connector-odbc-unixodbc-mysql57 gnupg
 }
 
 rc_sys() {
@@ -79,8 +82,8 @@ rc_sys() {
 }
 
 mysql_setup() {
-  cat > /var/db/mysql/my.cnf <<EOF
-[mysqld]
+#  cat > /var/db/mysql/my.cnf <<EOF
+#[mysqld]
 #init_connect='SET collation_connection = utf8_general_ci'
 #init_connect='SET NAMES utf8'
 #default-character-set=utf8
@@ -88,9 +91,9 @@ mysql_setup() {
 #collation-server=utf8_general_ci
 #skip-character-set-client-handshake
 #sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES
-EOF
+#EOF
 
-chown mysql:mysql /var/db/mysql/my.cnf
+#chown mysql:mysql /var/db/mysql/my.cnf
 
   cat > /usr/local/etc/odbc.ini <<EOF
 [MySQL-asteriskcdrdb]
@@ -118,7 +121,7 @@ apache_setup() {
 
   cp /usr/local/etc/apache24/httpd.conf /usr/local/etc/apache24/httpd.conf_orig
   sed -i.bak -E "s/^(User|Group).*/\1 ${ASTERISK_USER}/" /usr/local/etc/apache24/httpd.conf
-  #sed -i.bak 's/AllowOverride None/AllowOverride All/' /usr/local/etc/apache24/httpd.conf
+  sed -i.bak 's/AllowOverride None/AllowOverride All/' /usr/local/etc/apache24/httpd.conf
   
   sed -i.bak '/^#LoadModule rewrite_module libexec\/apache24\/mod_rewrite.so/s/^#//g' /usr/local/etc/apache24/httpd.conf
   sed -i.bak '/^#LoadModule mime_magic_module libexec\/apache24\/mod_mime_magic.so/s/^#//g' /usr/local/etc/apache24/httpd.conf
@@ -129,10 +132,47 @@ apache_setup() {
     AddType application/x-httpd-php .php
     ' /usr/local/etc/apache24/httpd.conf
     
+  sed -i.bak '/DirectoryIndex index.html/d' /usr/local/etc/apache24/httpd.conf
+  
+  sed -i.bak '/\<IfModule dir_module\>/a\
+    DirectoryIndex index.html index.php
+    ' /usr/local/etc/apache24/httpd.conf
+    
+  # apache config ssl
+  sed -i.bak '/^#LoadModule ssl_module libexec\/apache24\/mod_ssl.so/s/^#//g' /usr/local/etc/apache24/httpd.conf
+  
+  mkdir -p /usr/local/etc/apache24/ssl
+  cd /usr/local/etc/apache24/ssl
+  openssl genrsa -rand -genkey -out private.key 2048
+  
+  openssl req -new -x509 -days 365 -key private.key -out certificate.crt -sha256 -subj "/C=CA/ST=ONTARIO/L=TORONTO/O=Global Security/OU=IT Department/CN=${MY_SERVER_NAME}"
+  
+  cat > /usr/local/etc/apache24/modules.d/020_mod_ssl.conf <<EOF
+Listen 443
+SSLProtocol ALL -SSLv2 -SSLv3
+SSLCipherSuite HIGH:MEDIUM:!aNULL:!MD5
+SSLPassPhraseDialog builtin
+SSLSessionCacheTimeout 300
+EOF
+        
   cat > /usr/local/etc/apache24/Includes/freepbx.conf <<EOF
 <VirtualHost *:80>
   ServerName $MY_SERVER_NAME
   
+  DocumentRoot /usr/local/www/freepbx/admin
+  <Directory "/usr/local/www/freepbx/admin">
+    Options Indexes FollowSymLinks
+    AllowOverride All
+    Require all granted
+  </Directory>
+</VirtualHost>
+
+<VirtualHost *:443>
+  ServerName $MY_SERVER_NAME
+  
+  SSLEngine on
+  SSLCertificateFile "/usr/local/etc/apache24/ssl/certificate.crt"
+  SSLCertificateKeyFile "/usr/local/etc/apache24/ssl/private.key"
   DocumentRoot /usr/local/www/freepbx/admin
   <Directory "/usr/local/www/freepbx/admin">
     Options Indexes FollowSymLinks
@@ -202,6 +242,8 @@ linux() {
   ln -s /usr/local/bin/npm /usr/bin/npm
   
   ln -s /usr/local/bin/gpg /usr/bin/gpg
+  
+  ln -s /usr/local/bin/bash /bin/bash
 
   
 #simple script to take the runuser command that FreePBX uses and turn it in to su command.
@@ -209,6 +251,8 @@ linux() {
 #!/bin/sh
 su \$1 \$4 "\$5"
 EOF
+
+chmod 655 /usr/local/bin/runuser
 
   cat > /etc/fstab <<EOF
 #Some programs need linprocfs mounted on /compat/linux/proc.  Add the
@@ -236,6 +280,9 @@ mount /compat/linux/dev/shm
 }
 
 freepbx_setup() {
+  MYSQL_PASS=$(tail -1 /root/.mysql_secret)
+  mysqladmin -u root -p$MYSQL_PASS password ''
+  
   mkdir -p /usr/src
   cd /usr/src
 
@@ -245,7 +292,7 @@ freepbx_setup() {
   rm -R freepbx
   tar vxfz $FREEPBX_VER
   
-  #freepbx_installer_freebsd_fix
+  freepbx_installer_freebsd_fix
   
   cd freepbx
   touch /usr/local/etc/asterisk/{modules,ari,statsd}.conf
@@ -253,6 +300,8 @@ freepbx_setup() {
 }
 
 post_install() {
+  MYSQL_PASS=$(tail -1 /root/.mysql_secret)
+  mysqladmin -u root password '$MYSQL_PASS'
   #stop freepbx error about file being tampered with. Will this bite me in the ... later?
   #sed -i.bak 's/<field name="level" type="string" length="191" default="error"\/>/<field name="level" type="string" default="error"\/>/g' /usr/local/www/freepbx/admin/modules/framework/module.xml
 }
@@ -265,9 +314,9 @@ echo "This script is a work in progress"
 #stop_service
 
 #remove_pkg
-linux
-
 install_pkg
+
+linux
 
 rc_sys
 
@@ -277,23 +326,6 @@ apache_setup
 
 start_service
 
-#freepbx_installer_freebsd_fix
-
 freepbx_setup
 
 post_install
-
-
-#Process Mangement Module will not upgrade from gui
-#Node is not installed
-#  Error(s) installing pm2:
-#    * Failed to run installation scripts
-
-#Digium Addons not working because rpm package CentOS only
-#https://wiki.freepbx.org/display/F2/Digium+Addons
-#yum install -y php-digium_register
-#service httpd restart
-
-
-#????????????????
-#xmpp not working????

@@ -46,11 +46,8 @@ header() {
 }
 
 install_pkg() {
-  #pw user add asterisk
-  #chsh -s /usr/local/bin/bash asterisk
-
-  pkg install -y bash
-  pkg install -y asterisk13
+  pkg install -y bash sudo
+  pkg install -y asterisk13  
   pkg install -y apache24 mysql57-server mysql57-client mongodb36 bison flex node
   pkg install -y mod_$PHP_VER $PHP_VER $PHP_VER-curl $PHP_VER-mysqli $PHP_VER-pear $PHP_VER-gd $PHP_VER-pdo_mysql $PHP_VER-gettext $PHP_VER-openssl $PHP_VER-mbstring
   pkg install -y $PHP_VER-sysvsem
@@ -59,17 +56,6 @@ install_pkg() {
   
   pkg install -y npm
   pkg install -y linux_base-c7
-  #pkg install -y pidof fwconsole restart
-
-}
-
-remove_pkg() {
-  pkg remove -y asterisk13
-  pkg remove -y apache24 mysql57-server mysql57-client mongodb36 bison flex node
-  pkg remove -y mod_$PHP_VER $PHP_VER $PHP_VER-curl $PHP_VER-mysqli $PHP_VER-pear $PHP_VER-gd $PHP_VER-pdo_mysql $PHP_VER-gettext $PHP_VER-openssl $PHP_VAR-mbstring
-  pkg remove -y $PHP_VER-sysvsem
-  pkg remove -y $PHP_VER-extensions 
-  pkg remove -y curl sox ncurses openssl mpg123 libxml2 newt sqlite3 unixODBC mysql-connector-odbc-unixodbc-mysql57 gnupg
 }
 
 rc_sys() {
@@ -184,51 +170,16 @@ EOF
 }
 
 start_service() {
-  #safe_asterisk -U asterisk -G asterisk
   service asterisk restart
   service mysql-server restart
   service apache24 restart
 }
 
-stop_service() {
-  service asterisk stop
-  service mysql-server stop
-  service apache24 stop
-}
-
-freepbx_installer_freebsd_fix()
-{
-  #there is no runuser in freebsd so repalce it with sudo
-  #sed -i.bak 's/runuser . \. \$answers\[.user.\] \. . -s \/bin\/bash -c .cd ~\/ &&/sudo/g' /usr/src/freepbx/installlib/installcommand.class.php
-  
-  #the top sed command leaves some single quotes behind this removes them
-  #line 268
-  #sed -i.bak "s/\\\'core show version\\\'/'core show version'/g" /usr/src/freepbx/installlib/installcommand.class.php
-  #sed -i.bak "s/', \$tmpout, \$ret/, \$tmpout, \$ret/g" /usr/src/freepbx/installlib/installcommand.class.php
-    
-  #the top sed command leaves some single quotes behind this removes them
-  #line 761
-  #sed -i.bak "s/\\\'module reload manager\\\'/'module reload manager'/g" /usr/src/freepbx/installlib/installcommand.class.php
-  #sed -i.bak "s/',\$o,\$r/,\$o,\$r/g" /usr/src/freepbx/installlib/installcommand.class.php
-
-  
-  #if we don't give this field a length of 191 we get the following error
-  #An exception occurred while executing 'CREATE TABLE freepbx_log (id INT AUTO_INCREMENT NOT NULL, time DATETIME NOT NULL, section VARCHAR(50) DEFAULT NULL, level VARCHAR(255) DEFAULT 
-  #'error' NOT NULL, status INT DEFAULT 0 NOT NULL, message LONGTEXT NOT NULL, INDEX time (time, level), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci 
-  #ENGINE = InnoDB':
-  
-  #SQLSTATE[42000]: Syntax error or access violation: 1071 Specified key was too long; max key length is 767 bytes
-  
-  #mysql56 on BSD has a issues with VARCHAR(255) when in utf8mb4 mode?
-  #is there a better solution then this?
-  #sed -i.bak 's/<field name="level" type="string" default="error"\/>/<field name="level" type="string" length="191" default="error"\/>/g' /usr/src/freepbx/module.xml
-  
-  #sed -i.bak 's/255/191/g' /usr/src/freepbx/installlib/SQL/cdr.sql
-}
-
 linux() {
-  mkdir -p /home/asterisk
-  pw user add asterisk -s /usr/local/bin/bash -d /home/asterisk
+  mkdir /home/asterisk
+  chown asterisk:asterisk /home/asterisk
+  pw usermod asterisk -d /home/asterisk/ -m
+  chsh -s /usr/local/bin/bash asterisk
   
   #Reload failed because retrieve_conf encountered an error: 127
   #fixs this
@@ -244,16 +195,15 @@ linux() {
   ln -s /usr/local/bin/gpg /usr/bin/gpg
   
   ln -s /usr/local/bin/bash /bin/bash
-
   
-#simple script to take the runuser command that FreePBX uses and turn it in to su command.
+  #simple script to take the runuser command that FreePBX uses and turn it in to su command.
   cat > /usr/local/bin/runuser <<EOF
 #!/bin/sh
 su \$1 \$4 "\$5"
 EOF
 
 chmod 655 /usr/local/bin/runuser
-
+  
   cat > /etc/fstab <<EOF
 #Some programs need linprocfs mounted on /compat/linux/proc.  Add the
 #following line to /etc/fstab:
@@ -286,14 +236,28 @@ freepbx_setup() {
   mkdir -p /usr/src
   cd /usr/src
 
-  if [ ! -f $FREEPBX_VER ]; then
-    fetch http://mirror.freepbx.org/modules/packages/freepbx/$FREEPBX_VER
-  fi
+  MIRROR="mirror"
+  while [ ! -f "$FREEPBX_VER" ]
+  do
+    URL=http://$MIRROR.freepbx.org/modules/packages/freepbx/$FREEPBX_VER
+    header $URL
+    fetch http://$MIRROR.freepbx.org/modules/packages/freepbx/$FREEPBX_VER
+    sleep 1
+    case "$MIRROR" in
+      mirror)
+              MIRROR="mirror1"
+               ;;
+      mirror1)
+              MIRROR="mirror2"
+               ;;
+      *)
+              MIRROR="mirror"
+               ;;
+    esac      
+  done
   rm -R freepbx
   tar vxfz $FREEPBX_VER
-  
-  freepbx_installer_freebsd_fix
-  
+    
   cd freepbx
   touch /usr/local/etc/asterisk/{modules,ari,statsd}.conf
   ./install -n
@@ -302,18 +266,28 @@ freepbx_setup() {
 post_install() {
   MYSQL_PASS=$(tail -1 /root/.mysql_secret)
   mysqladmin -u root password '$MYSQL_PASS'
-  #stop freepbx error about file being tampered with. Will this bite me in the ... later?
-  #sed -i.bak 's/<field name="level" type="string" length="191" default="error"\/>/<field name="level" type="string" default="error"\/>/g' /usr/local/www/freepbx/admin/modules/framework/module.xml
+  
+  /usr/local/freepbx/bin/fwconsole set CERTKEYLOC /usr/local/etc/asterisk/keys
+  /usr/local/freepbx/sbin/fwconsole reload
+  
+  header "FreePBX Modules to not install."
+  echo "Call Flow Control - deprecated constructor"
+  echo "Digium Phones Config - deprecated constructor"
+  
+  echo "Digium Addons - requers RPM binary"
+  
+  echo "iSymphonyV3 - deprecated constructor"
+  
+  echo "User Control Panel - command line only? sudo /usr/local/freepbx/sbin/fwconsole ma install ucp"
+  echo "XMPP - command line only? sudo /usr/local/freepbx/sbin/fwconsole ma install xmpp"
 }
 
 
 #------------------------------------------
 #-    Main
 #------------------------------------------
-echo "This script is a work in progress"
-#stop_service
+header "This script is a work in progress"
 
-#remove_pkg
 install_pkg
 
 linux

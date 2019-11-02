@@ -16,7 +16,7 @@ PHP_VER=php71
 
 MY_SERVER_NAME="localhost"
 
-FREEPBX_VER="freepbx-14.0-latest.tgz"
+FREEPBX_VER="freepbx-15.0-latest.tgz"
 
 header() {
   HEADER=$1
@@ -47,7 +47,7 @@ header() {
 
 install_pkg() {
   pkg install -y bash sudo
-  pkg install -y asterisk13  
+  pkg install -y asterisk16  
   pkg install -y apache24 mysql57-server mysql57-client mongodb36 bison flex node
   pkg install -y mod_$PHP_VER $PHP_VER $PHP_VER-curl $PHP_VER-mysqli $PHP_VER-pear $PHP_VER-gd $PHP_VER-pdo_mysql $PHP_VER-gettext $PHP_VER-openssl $PHP_VER-mbstring
   pkg install -y $PHP_VER-sysvsem

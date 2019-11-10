@@ -342,6 +342,7 @@ display_man() {
           make -DBATCH install clean          
         fi
         sysrc lightdm_enable="YES"
+        pw usermod lightdm -G video
       fi
     fi   
   fi  

@@ -56,6 +56,7 @@ install_pkg() {
   
   pkg install -y npm
   pkg install -y linux_base-c7
+  pkg install -y sox gcc
 }
 
 rc_sys() {
@@ -118,11 +119,7 @@ apache_setup() {
     AddType application/x-httpd-php .php
     ' /usr/local/etc/apache24/httpd.conf
     
-  sed -i.bak '/DirectoryIndex index.html/d' /usr/local/etc/apache24/httpd.conf
-  
-  sed -i.bak '/\<IfModule dir_module\>/a\
-    DirectoryIndex index.html index.php
-    ' /usr/local/etc/apache24/httpd.conf
+  sed -i.bak 's/DirectoryIndex index.html/DirectoryIndex index.php index.html/' /usr/local/etc/apache24/httpd.conf
     
   # apache config ssl
   sed -i.bak '/^#LoadModule ssl_module libexec\/apache24\/mod_ssl.so/s/^#//g' /usr/local/etc/apache24/httpd.conf
@@ -196,6 +193,9 @@ linux() {
   
   ln -s /usr/local/bin/bash /bin/bash
   
+  #need for System recordings file upload
+  ln -s /usr/local/bin/sox /usr/bin/sox
+  
   #simple script to take the runuser command that FreePBX uses and turn it in to su command.
   cat > /usr/local/bin/runuser <<EOF
 #!/bin/sh
@@ -227,6 +227,8 @@ tmpfs    /compat/linux/dev/shm  tmpfs   rw,mode=1777    0       0
 EOF
 
 mount /compat/linux/dev/shm
+
+sed -i.bak 's/\[directories\](\!)/[directories]/' /usr/local/etc/asterisk/asterisk.conf
 }
 
 freepbx_setup() {

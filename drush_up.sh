@@ -31,12 +31,12 @@ fi
 cd $DIR
 
 echo "Going into maintenance mode."
-drush vset maintenance_mode 1
 drush sset system.maintenance_mode 1
+drush cache-rebuild
 
 echo "Doing Update."
 drush up --yes
 
 echo "Leaving maintenance mode."
 drush sset system.maintenance_mode 0
-drush vset maintenance_mode 0
+drush cache-rebuild

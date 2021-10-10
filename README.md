@@ -82,4 +82,35 @@ Will try and setup and install FreePBX.
 
 ## fusionpbx_setup.sh
 
+Work in progress script for install FusionPBX GUI for the FreeSwitch Phone system.
+
+```sh
+./fusionpbx_setup.sh
+```
+
+## kernelsrc.sh
+
+Script for download FreeBSD kernel source.
+
+```sh
+./kernelsrc.sh -s
+```
+
+-s uses snapshots default is release.
+
+## temputre.sh
+
+Script to report the temputre of you CPU cores and Hard drives.
+
+```sh
+./temputre.sh
+```
+
+## update.sh
+
+Script for update pakages install with ports using portmaster.
+
+```sh
+./update.sh -d
+```
 

@@ -52,7 +52,7 @@ The script will take the pass directory and use drush to put drupal into mainten
 
 ## freebsd_setup.sh
 
-Asks you questions about what packages you wish to install and setup
+Asks you questions about what packages you wish to install and setup.
 
 ```sh
 ./freebsd_setup.sh -p -v -x -d lightdm -f -s -u richard -b richard -R

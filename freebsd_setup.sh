@@ -33,9 +33,11 @@ FIREFOX=false
 
 REBOOT=false
 
+DEBUG=false
+
 OPT=false
 
-while getopts UpvkgxsubfRh option
+while getopts Upvkgxd:su:b:fRh option
 do
   case "${option}"
   in
@@ -45,11 +47,14 @@ do
   h) HELP=true;;
   k) KDE=true;;
   g) GNOME=true;;
-  g) XFCE=true;;
+  x) XFCE=true;;
+  d) DIS=true
+    DISPLAYMAN=$OPTARG;;
   s) SUDO=true;;
   u) SUDO=true
     USERS_SUDO=$OPTARG;;
-  b) BASH=true;;
+  b) BASH=true
+    USERS_BASH=$OPTARG;;
   f) FIREFOX=true;;
   R) REBOOT=true;;
   esac
@@ -374,12 +379,15 @@ sudo_install() {
 }
 
 add_sudo_user() {
+  if [ -n "$USERS_SUDO" ]; then
+    SUDO_USER=$USERS_SUDO
+  fi
   if [ -f /usr/local/etc/sudoers ]; then
     sed -i.bak '/^# %sudo/s/^#//g' /usr/local/etc/sudoers
   fi
   if [ -n "$SUDO_USER" ]; then
     [ $(getent group sudo) ] || pw groupadd sudo
-    pw groupmod sudo -m $USER_ADD
+    pw groupmod sudo -m $SUDO_USER
   fi
 }
 
@@ -395,6 +403,9 @@ bash_install() {
 }
 
 add_bash_user() {
+  if [ -n "$USERS_BASH" ]; then
+    BASH_USER=$USERS_BASH
+  fi
   if [ -f /usr/local/bin/bash ]; then
     if id "$BASH_USER" >/dev/null 2>&1; then
       echo "user does exist."
@@ -613,6 +624,43 @@ execute_selection() {
   reboot_com
 }
 
+debug() {
+  if [ $DEBUG = false ]; then
+    return
+  fi
+
+  echo "UPDATE=${UPDATE}"
+
+  echo "PKG=${PKG}"
+  echo "VMWARE=${VMWARE}"
+
+  echo "HELP=${HELP}"
+
+  echo "KDE=${KDE}"
+  echo "GNOME=${GNOME}"
+  echo "XFCE=${XFCE}"
+
+  echo "DIS=${DIS}"
+  echo "DISPLAYMAN=${DISPLAYMAN}"
+
+  echo "GDM=${GDM}"
+  echo "SDDM=${SDDM}"
+  echo "LIGHTDM=${LIGHTDM}"
+  echo "NONE=${NONE}"
+
+  echo "SUDO=${SUDO}"
+  echo "USERS_SUDO=${USERS_SUDO}"
+
+  echo "BASH=${BASH}"
+  echo "USERS_BASH=${USERS_BASH}"
+
+  echo "FIREFOX=${FIREFOX}"
+
+  echo "REBOOT=${REBOOT}"
+
+  echo "OPT=${OPT}"
+}
+
 #------------------------------------------
 #-    Main
 #------------------------------------------
@@ -625,5 +673,7 @@ fi
 if [ $OPT = false ]; then
   ask_questions
 fi
+
+debug
 
 execute_selection

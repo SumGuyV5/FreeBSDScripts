@@ -7,7 +7,7 @@ if [ "$1" = "" ] || [ "$1" = "-h" ]; then
   echo "Please run as root and pass the user name."
   exit 1
 fi
-if [ "$(uname)" == 'Linux' ]; then
+if [ "$(uname)" = 'Linux' ]; then
   echo "This Script is for FreeBSD."
   exit 1
 fi
